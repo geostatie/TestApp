@@ -23,6 +23,10 @@
 **/values.dev.yaml
 LICENSE
 README.md
+# The API image has no use for the frontend sources; excluding them keeps the
+# build context small. The frontend has its own Dockerfile and context.
+testapp-frontend
+.github
 !**/.gitignore
 !.git/HEAD
 !.git/config
