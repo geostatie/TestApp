@@ -1,0 +1,15 @@
+.shell {
+  &__header {
+    border-bottom: 1px solid #d4d4d4;
+    margin-bottom: 2rem;
+
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 1rem;
+    }
+  }
+
+  &__main {
+    padding-bottom: 3rem;
+  }
+}

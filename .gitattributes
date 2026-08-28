@@ -1,0 +1,27 @@
+# Normalize text files to LF in the repository; Git converts on checkout.
+* text=auto
+
+# Files consumed inside Linux containers MUST keep LF endings.
+# A CRLF shebang breaks with "bad interpreter: No such file or directory".
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+nginx.conf      text eol=lf
+*.conf          text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+
+# Windows-native files keep CRLF.
+*.sln           text eol=crlf
+*.csproj        text eol=crlf
+*.ps1           text eol=crlf
+
+# Binary — never touch.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.woff          binary
+*.woff2         binary
+*.pdf           binary

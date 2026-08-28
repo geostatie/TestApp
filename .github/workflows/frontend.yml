@@ -1,0 +1,84 @@
+name: frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'testapp-frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'testapp-frontend/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/testapp-frontend
+  CONTAINER_APP: testapp-frontend
+  RESOURCE_GROUP: testapp-rg
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # required to request the OIDC token for Azure login
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: testapp-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: testapp-frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: testapp-frontend
+        run: npm test -- --watch=false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tagged with the commit SHA as well as latest, so every deployment is
+      # traceable to a commit and rollback is just re-running with an older tag.
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: testapp-frontend
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Federated credentials — no client secret is stored anywhere.
+      - name: Azure login
+        if: github.event_name != 'pull_request'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Container Apps
+        if: github.event_name != 'pull_request'
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az containerapp update \
+              --name "${{ env.CONTAINER_APP }}" \
+              --resource-group "${{ env.RESOURCE_GROUP }}" \
+              --image "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"

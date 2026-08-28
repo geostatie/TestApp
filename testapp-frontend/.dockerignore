@@ -1,0 +1,17 @@
+# Never ship the host's dependency tree or build output into the image —
+# npm ci reinstalls them for the correct platform inside the build stage.
+node_modules
+dist
+.angular
+
+.git
+.gitignore
+.vscode
+.mcp.json
+
+*.md
+Dockerfile
+.dockerignore
+
+# Test/coverage artifacts
+coverage

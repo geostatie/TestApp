@@ -1,0 +1,47 @@
+<section class="weather">
+  <h2>Weather forecast</h2>
+  <p class="weather__hint">Fetches <code>GET /weatherforecast</code> from the TestApp API.</p>
+
+  <button type="button" class="weather__button" [disabled]="loading()" [attr.aria-busy]="loading()" (click)="load()">
+    @if (loading()) {
+      Loading…
+    } @else {
+      Get forecast
+    }
+  </button>
+
+  <!-- Status messages are announced to screen readers as they change. -->
+  <div aria-live="polite">
+    @if (error(); as message) {
+      <p class="weather__error" role="alert">{{ message }}</p>
+    }
+
+    @if (hasLoaded() && !error() && forecasts().length === 0) {
+      <p class="weather__empty">The API returned no forecasts.</p>
+    }
+  </div>
+
+  @if (forecasts().length > 0) {
+    <table class="weather__table">
+      <caption class="weather__caption">Five day forecast</caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">°C</th>
+          <th scope="col">°F</th>
+          <th scope="col">Summary</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (forecast of forecasts(); track forecast.date) {
+          <tr>
+            <td>{{ forecast.date }}</td>
+            <td>{{ forecast.temperatureC }}</td>
+            <td>{{ forecast.temperatureF }}</td>
+            <td>{{ forecast.summary ?? '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>
