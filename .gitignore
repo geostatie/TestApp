@@ -1,0 +1,82 @@
+## ---------------------------------------------------------------------------
+## .NET
+## ---------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+[Pp]ublish/
+*.dll
+*.exe
+*.pdb
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+
+# ASP.NET local secrets — never commit these
+appsettings.*.local.json
+secrets.json
+
+## ---------------------------------------------------------------------------
+## Node / Angular
+## ---------------------------------------------------------------------------
+node_modules/
+dist/
+tmp/
+out-tsc/
+bazel-out/
+
+# Angular cache
+.angular/
+
+# Test / coverage output
+coverage/
+*.lcov
+
+# npm / yarn / pnpm logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+## ---------------------------------------------------------------------------
+## Environment & editors
+## ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+## ---------------------------------------------------------------------------
+## OS
+## ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
