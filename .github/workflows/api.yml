@@ -18,13 +18,12 @@ env:
   RESOURCE_GROUP: testapp-rg
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
       packages: write
-      id-token: write # required to request the OIDC token for Azure login
 
     steps:
       - uses: actions/checkout@v4
@@ -62,8 +61,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Separate job so that pull requests build and test without registering a
+  # deployment. This is what populates the repository's Environments view.
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write # required to request the OIDC token for Azure login
+
+    environment:
+      name: api-production
+      url: https://testapp.mangocoast-d590f589.northeurope.azurecontainerapps.io/swagger
+
+    steps:
+      # Federated credentials — no client secret is stored anywhere.
       - name: Azure login
-        if: github.event_name != 'pull_request'
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -71,7 +86,6 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy to Container Apps
-        if: github.event_name != 'pull_request'
         uses: azure/cli@v2
         with:
           azcliversion: latest
