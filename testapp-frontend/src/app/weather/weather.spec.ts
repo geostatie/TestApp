@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Weather } from './weather';
+import { RETRY_COUNT, RETRY_DELAY_MS } from './weather-api';
 import { APP_CONFIG } from '../core/app-config';
 import { type WeatherForecast } from './weather-forecast';
 
@@ -17,6 +19,10 @@ describe('Weather', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    // The app is zoneless, so Angular's fakeAsync/tick are unavailable.
+    // rxjs timer() schedules on setTimeout, which vitest can drive directly.
+    vi.useFakeTimers();
+
     await TestBed.configureTestingModule({
       imports: [Weather],
       providers: [
@@ -29,7 +35,17 @@ describe('Weather', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    httpMock.verify();
+    vi.useRealTimers();
+  });
+
+  function clickButton() {
+    const fixture = TestBed.createComponent(Weather);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('button') as HTMLButtonElement).click();
+    return fixture;
+  }
 
   it('does not call the API until the button is clicked', () => {
     const fixture = TestBed.createComponent(Weather);
@@ -39,14 +55,10 @@ describe('Weather', () => {
   });
 
   it('renders a row per forecast once loaded', async () => {
-    const fixture = TestBed.createComponent(Weather);
-    fixture.detectChanges();
-
-    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
-    button.click();
+    const fixture = clickButton();
 
     httpMock.expectOne(FORECAST_URL).flush(sample);
-    await fixture.whenStable();
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
 
     const rows = fixture.nativeElement.querySelectorAll('tbody tr');
@@ -55,19 +67,49 @@ describe('Weather', () => {
     expect(rows[1].textContent).toContain('—');
   });
 
-  it('explains a status 0 failure as a likely CORS problem', async () => {
-    const fixture = TestBed.createComponent(Weather);
-    fixture.detectChanges();
+  it('retries a status 0 failure, then reports it without blaming CORS alone', async () => {
+    const fixture = clickButton();
 
-    (fixture.nativeElement.querySelector('button') as HTMLButtonElement).click();
+    // One initial attempt plus RETRY_COUNT retries, each after a growing delay.
+    for (let attempt = 0; attempt <= RETRY_COUNT; attempt++) {
+      httpMock.expectOne(FORECAST_URL).error(new ProgressEvent('error'), { status: 0 });
+      await vi.advanceTimersByTimeAsync((attempt + 1) * RETRY_DELAY_MS);
+    }
 
-    httpMock
-      .expectOne(FORECAST_URL)
-      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
-    await fixture.whenStable();
     fixture.detectChanges();
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
-    expect(alert.textContent).toContain('CORS');
+    expect(alert.textContent).toContain('No response from the API');
+    // The old message named CORS as the cause; it is only one possibility.
+    expect(alert.textContent).toContain('zero replicas');
+  });
+
+  it('recovers when a retry succeeds', async () => {
+    const fixture = clickButton();
+
+    httpMock.expectOne(FORECAST_URL).error(new ProgressEvent('error'), { status: 0 });
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS);
+
+    httpMock.expectOne(FORECAST_URL).flush(sample);
+    await vi.advanceTimersByTimeAsync(0);
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('tbody tr').length).toBe(2);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('does not retry a 4xx, since that is not transient', async () => {
+    const fixture = clickButton();
+
+    httpMock.expectOne(FORECAST_URL).flush('nope', { status: 404, statusText: 'Not Found' });
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS * (RETRY_COUNT + 1));
+
+    fixture.detectChanges();
+
+    // No further attempt was made despite advancing past every retry delay.
+    httpMock.expectNone(FORECAST_URL);
+    const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain('404');
   });
 });

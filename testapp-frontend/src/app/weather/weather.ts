@@ -37,18 +37,24 @@ export class Weather {
 /**
  * Turn an HTTP failure into something actionable.
  *
- * Status 0 is the important case: the browser blocked the response before any
- * status was read. That is nearly always a CORS rejection or an unreachable
- * API, and the generic "Http failure response" text sends people hunting in
- * the wrong place.
+ * Status 0 means no response was received at all, so the cause is genuinely
+ * ambiguous. Naming only CORS here was actively misleading: with the API on
+ * Container Apps at minReplicas 0, a dropped connection during scale-down or a
+ * cold start produces exactly the same status. The request has already been
+ * retried by WeatherApi before reaching this point.
  */
 function describeError(err: HttpErrorResponse): string {
   if (err.status === 0) {
     return (
-      'Could not reach the API. This is usually a CORS rejection or the API being ' +
-      'unreachable — open the browser console for the specific CORS message.'
+      'No response from the API after retrying. The cause cannot be determined from ' +
+      'the browser alone — it may be starting up from zero replicas, a dropped ' +
+      'connection, or a CORS rejection. The browser console shows which.'
     );
   }
 
-  return `The API responded with ${err.status} ${err.statusText || ''}`.trim();
+  if (err.status >= 500) {
+    return `The API failed with ${err.status} ${err.statusText || ''}`.trim();
+  }
+
+  return `The API rejected the request: ${err.status} ${err.statusText || ''}`.trim();
 }
