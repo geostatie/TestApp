@@ -13,10 +13,27 @@ builder.Services.AddCors(options =>
     options.AddPolicy(FrontendCorsPolicy, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .AllowAnyMethod()
+        // Browsers hide non-standard response headers from JavaScript unless
+        // they are explicitly exposed, so the SPA could not read X-Served-By.
+        .WithExposedHeaders("X-Served-By"));
 });
 
 var app = builder.Build();
+
+// Identifies the replica handling the request. Container Apps injects
+// CONTAINER_APP_REPLICA_NAME; the machine name is the fallback for local runs.
+// Resolved once at startup because it cannot change for the life of the process.
+var replicaName = Environment.GetEnvironmentVariable("CONTAINER_APP_REPLICA_NAME")
+                  ?? Environment.MachineName;
+
+// Stamp every response so load balancing across replicas is observable from
+// the outside. First in the pipeline, so it covers Swagger and errors too.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Served-By"] = replicaName;
+    await next();
+});
 
 // Swagger JSON + UI
 app.UseSwagger();
