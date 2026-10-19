@@ -1,6 +1,23 @@
+using System.Text.Json;
+using Azure.Messaging.ServiceBus;
+
 var builder = WebApplication.CreateBuilder(args);
 
 const string FrontendCorsPolicy = "frontend";
+
+// Optional on purpose: without a connection string the API still starts and serves
+// everything else, it just does not expose the queueing endpoint. A missing value
+// should degrade one feature, not crash the app.
+var serviceBusConnection = builder.Configuration["ServiceBus:ConnectionString"];
+var reportQueueName = builder.Configuration["ServiceBus:QueueName"] ?? "reports";
+var queueingEnabled = !string.IsNullOrWhiteSpace(serviceBusConnection);
+
+if (queueingEnabled)
+{
+    builder.Services.AddSingleton(new ServiceBusClient(serviceBusConnection));
+    builder.Services.AddSingleton(sp =>
+        sp.GetRequiredService<ServiceBusClient>().CreateSender(reportQueueName));
+}
 
 // Only Swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -65,9 +82,38 @@ app.MapGet("/weatherforecast", () =>
     })
     .WithName("GetWeatherForecast");
 
+if (queueingEnabled)
+{
+    // Accepts work and returns immediately. Nothing slow is ever attached to an
+    // HTTP request, so the replica can be killed at any moment without losing it.
+    app.MapPost("/reports", async (QueueReportRequest request, ServiceBusSender sender, CancellationToken ct) =>
+        {
+            var jobId = Guid.NewGuid().ToString("n");
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                jobId,
+                subject = request.Subject,
+                workSeconds = Math.Clamp(request.WorkSeconds, 1, 60),
+            });
+
+            // MessageId is the job id, which also gives Service Bus a natural
+            // key if duplicate detection is ever enabled.
+            await sender.SendMessageAsync(new ServiceBusMessage(payload) { MessageId = jobId }, ct);
+
+            // 202, not 200: the work is queued, not done.
+            return Results.Accepted($"/reports/{jobId}", new { jobId, status = "queued" });
+        })
+        .WithName("QueueReport");
+}
+
 app.Run();
 
 internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }
+
+/// <param name="Subject">Use "fail" to exercise the retry and dead-letter path.</param>
+/// <param name="WorkSeconds">How long the worker should pretend to work, 1-60.</param>
+internal record QueueReportRequest(string Subject, int WorkSeconds = 5);
