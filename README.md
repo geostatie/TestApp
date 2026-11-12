@@ -1,6 +1,6 @@
 # TestApp
 
-A learning project: a .NET 9 minimal API and an Angular 22 SPA, both deployed to
+A learning project: a .NET 10 minimal API and an Angular 22 SPA, both deployed to
 Azure Container Apps via GitHub Actions.
 
 | | API | Frontend |

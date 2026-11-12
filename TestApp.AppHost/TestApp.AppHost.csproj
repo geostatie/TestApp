@@ -1,8 +1,6 @@
 <Project Sdk="Aspire.AppHost.Sdk/13.6.4">
 
-  <!-- Local orchestration only: this project is never built in CI or deployed.
-       It targets net10.0 because the Aspire 13 SDK requires it; the apps it
-       runs keep their own target frameworks. -->
+  <!-- Local orchestration only: this project is never built in CI or deployed. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
