@@ -1,0 +1,26 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.4">
+
+  <!-- Local orchestration only: this project is never built in CI or deployed.
+       It targets net10.0 because the Aspire 13 SDK requires it; the apps it
+       runs keep their own target frameworks. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <UserSecretsId>f635b5a0-9007-4bac-a41e-008bdfeb3b4a</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" Version="13.6.4" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.6.4" />
+  </ItemGroup>
+
+  <!-- Referencing the projects generates the Projects.* types used in AppHost.cs. -->
+  <ItemGroup>
+    <ProjectReference Include="..\TestApp\TestApp.csproj" />
+    <ProjectReference Include="..\TestApp.Worker\TestApp.Worker.csproj" />
+  </ItemGroup>
+
+</Project>

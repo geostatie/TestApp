@@ -15,6 +15,23 @@ app answering, not a broken deployment.
 
 ## Running locally
 
+### Everything at once (Aspire)
+
+[`TestApp.AppHost/`](TestApp.AppHost/) starts the API, the worker, the Angular
+dev server and a local **Service Bus emulator** together, and opens the Aspire
+dashboard (logs, status and URLs for every part):
+
+```bash
+dotnet run --project TestApp.AppHost    # or set TestApp.AppHost as the startup project and press F5
+```
+
+Requires Docker Desktop running and the .NET 10 SDK. The emulator gets its own
+`reports` queue, so local runs never touch the queue in Azure. The first run
+pulls about 2 GB of images. If the `servicebus` resource fails on that first run,
+restart it from the dashboard: its SQL dependency was still downloading.
+
+### API and frontend only
+
 Two terminals. Use the **http** launch profile so no HTTPS dev certificate is
 needed:
 
