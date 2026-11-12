@@ -15,11 +15,21 @@ var serviceBus = builder.AddAzureServiceBus("servicebus")
 serviceBus.AddServiceBusQueue("reports")
     .WithProperties(queue => queue.MaxDeliveryCount = 5);
 
+// SQL Server in Docker, with an empty clinicdb database created on startup. The
+// API's migrations build the schema and insert the example rows. Session
+// lifetime: every run starts from a fresh database.
+var clinicDb = builder.AddSqlServer("sql")
+    .AddDatabase("clinicdb");
+
 // The "http" profile keeps the API on http://localhost:5280, which is what
 // testapp-frontend/public/config.json already points at.
+// WithReference(clinicDb) sets ConnectionStrings__clinicdb, the same variable
+// the API receives in Azure.
 var api = builder.AddProject<Projects.TestApp>("api", launchProfileName: "http")
     .WithEnvironment("ServiceBus__ConnectionString", serviceBus)
-    .WaitFor(serviceBus);
+    .WithReference(clinicDb)
+    .WaitFor(serviceBus)
+    .WaitFor(clinicDb);
 
 // The worker throws on startup without a connection string, so it must not start
 // before the emulator is healthy.

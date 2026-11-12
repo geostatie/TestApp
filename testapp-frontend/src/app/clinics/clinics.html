@@ -1,0 +1,81 @@
+<section class="clinics">
+  <h2>Clinics</h2>
+  <p class="clinics__hint">Choose a clinic to see its doctors.</p>
+
+  <!-- Status messages are announced to screen readers as they change. -->
+  <div aria-live="polite">
+    @if (loading()) {
+      <p class="clinics__status">Loading clinics…</p>
+    }
+
+    @if (error(); as message) {
+      <div class="clinics__error" role="alert">
+        <p>{{ message }}</p>
+        <button type="button" class="clinics__button" (click)="loadClinics()">Try again</button>
+      </div>
+    }
+
+    @if (!loading() && !error() && clinics().length === 0) {
+      <p class="clinics__status">There are no clinics yet.</p>
+    }
+  </div>
+
+  @if (clinics().length > 0) {
+    <ul class="clinics__list">
+      @for (clinic of clinics(); track clinic.id) {
+        <li>
+          <button
+            type="button"
+            class="clinics__card"
+            [class.clinics__card--selected]="selected()?.id === clinic.id"
+            [attr.aria-pressed]="selected()?.id === clinic.id"
+            (click)="select(clinic)"
+          >
+            <span class="clinics__name">{{ clinic.name }}</span>
+            <span class="clinics__meta">{{ clinic.city }} · {{ clinic.address }}</span>
+            <span class="clinics__meta">
+              {{ clinic.doctorCount }} {{ clinic.doctorCount === 1 ? 'doctor' : 'doctors' }}
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (selected(); as clinic) {
+    <section class="clinics__doctors" aria-live="polite">
+      <h3>Doctors at {{ clinic.name }}</h3>
+
+      @if (doctorsLoading()) {
+        <p class="clinics__status">Loading doctors…</p>
+      }
+
+      @if (doctorsError(); as message) {
+        <p class="clinics__error" role="alert">{{ message }}</p>
+      }
+
+      @if (!doctorsLoading() && !doctorsError() && doctors().length === 0) {
+        <p class="clinics__status">This clinic has no doctors yet.</p>
+      }
+
+      @if (doctors().length > 0) {
+        <table class="clinics__table">
+          <thead>
+            <tr>
+              <th scope="col">Doctor</th>
+              <th scope="col">Specialty</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (doctor of doctors(); track doctor.id) {
+              <tr>
+                <td>{{ doctor.name }}</td>
+                <td>{{ doctor.specialty }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  }
+</section>

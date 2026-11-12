@@ -1,9 +1,26 @@
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using Microsoft.EntityFrameworkCore;
+using TestApp.Clinics;
+using TestApp.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 const string FrontendCorsPolicy = "frontend";
+
+// Required, unlike Service Bus: without the database there is nothing to serve.
+// Locally TestApp.AppHost injects it; in Azure it arrives as the env var
+// ConnectionStrings__clinicdb, sourced from a container app secret.
+var clinicDbConnection = builder.Configuration.GetConnectionString("clinicdb")
+    ?? throw new InvalidOperationException(
+        "ConnectionStrings:clinicdb is not configured. Run through TestApp.AppHost locally; " +
+        "in Azure it arrives as the env var ConnectionStrings__clinicdb.");
+
+builder.Services.AddDbContext<ClinicDb>(options => options.UseSqlServer(
+    clinicDbConnection,
+    // Azure SQL drops connections during failovers and while a paused serverless
+    // database resumes. Those errors are transient, so retry them with backoff.
+    sql => sql.EnableRetryOnFailure()));
 
 // Optional on purpose: without a connection string the API still starts and serves
 // everything else, it just does not expose the queueing endpoint. A missing value
@@ -38,6 +55,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Bring the schema up to date before taking traffic. EF Core holds a database
+// lock while migrating, so replicas that start together cannot both apply the
+// same migration; the second one waits and then finds nothing left to do.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<ClinicDb>().Database.MigrateAsync();
+}
+
 // Identifies the replica handling the request. Container Apps injects
 // CONTAINER_APP_REPLICA_NAME; the machine name is the fallback for local runs.
 // Resolved once at startup because it cannot change for the life of the process.
@@ -62,25 +87,7 @@ app.UseHttpsRedirection();
 // silently dropped from responses.
 app.UseCors(FrontendCorsPolicy);
 
-app.MapGet("/weatherforecast", () =>
-    {
-        var summaries = new[]
-        {
-            "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-        };
-
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-
-        return forecast;
-    })
-    .WithName("GetWeatherForecast");
+app.MapClinicEndpoints();
 
 if (queueingEnabled)
 {
@@ -108,11 +115,6 @@ if (queueingEnabled)
 }
 
 app.Run();
-
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
 
 /// <param name="Subject">Use "fail" to exercise the retry and dead-letter path.</param>
 /// <param name="WorkSeconds">How long the worker should pretend to work, 1-60.</param>

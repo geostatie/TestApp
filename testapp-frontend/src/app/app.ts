@@ -1,8 +1,8 @@
 import { Component, signal } from '@angular/core';
-import { Weather } from './weather/weather';
+import { Clinics } from './clinics/clinics';
 
 @Component({
-  imports: [Weather],
+  imports: [Clinics],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
